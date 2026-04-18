@@ -1,11 +1,21 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SSMD Agent — Intel System Stress & Memory Diagnostics</title>
+    <script>
+        // Apply theme ASAP to prevent FOUC
+        (function() {
+            const saved = localStorage.getItem('ssmd-theme');
+            const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+            const theme = saved || (prefersLight ? 'light' : 'dark');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
     <style>
-        :root {
+        /* ─── Dark Theme (default) ─────────────── */
+        :root, [data-theme="dark"] {
             --intel-blue: #0071c5;
             --intel-dark: #00285a;
             --intel-light: #e7f1fa;
@@ -20,41 +30,90 @@
             --warning: #ffc107;
             --danger: #ff4757;
             --code-bg: #0d1520;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 20px rgba(0,0,0,0.5);
+            --shadow-card: 0 8px 25px rgba(0,113,197,0.15);
+            --header-grad: linear-gradient(135deg, #00285a 0%, #003366 50%, #0071c5 100%);
+            --quick-q-bg: rgba(0,113,197,0.12);
+            --quick-q-border: rgba(0,113,197,0.25);
+            --quick-q-text: #6bb8e8;
+            --code-inline-bg: rgba(0,199,253,0.12);
+            --user-msg-text: #ffffff;
+        }
+
+        /* ─── Light Theme ──────────────────────── */
+        [data-theme="light"] {
+            --intel-blue: #0071c5;
+            --intel-dark: #003c75;
+            --intel-light: #e7f1fa;
+            --accent: #0071c5;
+            --bg: #f4f6fa;
+            --card: #ffffff;
+            --card-hover: #f8fbff;
+            --text: #1a2332;
+            --text-dim: #5a6b80;
+            --border: #d8e0ec;
+            --success: #00a854;
+            --warning: #d97706;
+            --danger: #e53e3e;
+            --code-bg: #f1f4f9;
+            --shadow-sm: 0 2px 6px rgba(0,40,90,0.08);
+            --shadow-md: 0 4px 16px rgba(0,40,90,0.12);
+            --shadow-card: 0 6px 20px rgba(0,113,197,0.12);
+            --header-grad: linear-gradient(135deg, #003c75 0%, #0058a3 50%, #0071c5 100%);
+            --quick-q-bg: rgba(0,113,197,0.08);
+            --quick-q-border: rgba(0,113,197,0.25);
+            --quick-q-text: #0058a3;
+            --code-inline-bg: rgba(0,113,197,0.10);
+            --user-msg-text: #ffffff;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { transition: background-color 0.3s ease; }
 
         body {
             font-family: 'Segoe UI', 'Inter', -apple-system, sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Smooth transitions for theme-aware elements */
+        .card, .cmd-card, .version-card, .diff-section, .compare-bar,
+        .chat-input-area, .footer-info, .chat-input, .search-box,
+        .compare-bar select, .msg-content, .flow-list li, .version-stat,
+        .config-table th, .config-table td, .cmd-card .cmd-code,
+        .msg-content pre, .msg-content th, .msg-content td {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
         /* ─── Header ─────────────────────────────── */
         .header {
-            background: linear-gradient(135deg, var(--intel-dark) 0%, #003366 50%, var(--intel-blue) 100%);
+            background: var(--header-grad);
             padding: 16px 32px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            box-shadow: var(--shadow-md);
             position: sticky;
             top: 0;
             z-index: 100;
         }
         .header-left { display: flex; align-items: center; gap: 16px; }
-        .header h1 { font-size: 22px; font-weight: 700; letter-spacing: 1px; }
-        .header h1 span { color: var(--accent); }
+        .header h1 { font-size: 22px; font-weight: 700; letter-spacing: 1px; color: #fff; }
+        .header h1 span { color: #00c7fd; }
         .header-badge {
             background: rgba(0,199,253,0.15);
-            color: var(--accent);
+            color: #00c7fd;
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
             border: 1px solid rgba(0,199,253,0.3);
         }
+        .header-right { display: flex; align-items: center; gap: 12px; }
         .header-nav { display: flex; gap: 8px; }
         .header-nav button {
             background: rgba(255,255,255,0.1);
@@ -67,10 +126,40 @@
             transition: all 0.2s;
         }
         .header-nav button:hover, .header-nav button.active {
-            background: var(--accent);
-            color: var(--intel-dark);
-            border-color: var(--accent);
+            background: #00c7fd;
+            color: #00285a;
+            border-color: #00c7fd;
         }
+
+        /* ─── Theme Toggle ───────────────────────── */
+        .theme-toggle {
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: #fff;
+            width: 42px;
+            height: 38px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.22);
+            transform: rotate(15deg) scale(1.05);
+        }
+        .theme-toggle .icon {
+            position: absolute;
+            transition: opacity 0.3s ease, transform 0.4s ease;
+        }
+        [data-theme="dark"] .theme-toggle .icon-sun { opacity: 1; transform: rotate(0); }
+        [data-theme="dark"] .theme-toggle .icon-moon { opacity: 0; transform: rotate(-90deg); }
+        [data-theme="light"] .theme-toggle .icon-sun { opacity: 0; transform: rotate(90deg); }
+        [data-theme="light"] .theme-toggle .icon-moon { opacity: 1; transform: rotate(0); }
 
         /* ─── Main Layout ────────────────────────── */
         .main-container { display: flex; height: calc(100vh - 64px); }
@@ -143,6 +232,17 @@
         .tag-green { background: rgba(0,210,106,0.2); color: #00d26a; }
         .tag-orange { background: rgba(255,193,7,0.2); color: #ffc107; }
         .tag-purple { background: rgba(147,51,234,0.2); color: #a78bfa; }
+
+        /* Light theme: improve contrast for tag text on light backgrounds */
+        [data-theme="light"] .tag-blue { background: rgba(0,113,197,0.12); color: #0058a3; }
+        [data-theme="light"] .tag-green { background: rgba(0,168,84,0.14); color: #008542; }
+        [data-theme="light"] .tag-orange { background: rgba(217,119,6,0.14); color: #b45309; }
+        [data-theme="light"] .tag-purple { background: rgba(147,51,234,0.12); color: #6d28d9; }
+        [data-theme="light"] .msg-content h3 { color: #0058a3; }
+        [data-theme="light"] .reset-btn { color: #c53030; background: rgba(229,62,62,0.08); border-color: rgba(229,62,62,0.3); }
+        [data-theme="light"] .reset-btn:hover { background: #e53e3e; color: #fff; }
+        [data-theme="light"] .diff-item.improved { color: #6d28d9; }
+        [data-theme="light"] .typing-indicator span { background: #6b7c8f; }
 
         .flow-list { list-style: none; padding: 0; }
         .flow-list li {
@@ -262,7 +362,7 @@
             font-size: 13px;
         }
         .msg-content :not(pre) > code {
-            background: rgba(0,199,253,0.12);
+            background: var(--code-inline-bg);
             padding: 2px 6px;
             border-radius: 4px;
             color: var(--accent);
@@ -331,9 +431,9 @@
             margin-top: 10px;
         }
         .quick-q {
-            background: rgba(0,113,197,0.12);
-            border: 1px solid rgba(0,113,197,0.25);
-            color: #6bb8e8;
+            background: var(--quick-q-bg);
+            border: 1px solid var(--quick-q-border);
+            color: var(--quick-q-text);
             padding: 6px 12px;
             border-radius: 18px;
             font-size: 12px;
@@ -341,8 +441,9 @@
             transition: all 0.2s;
         }
         .quick-q:hover {
-            background: rgba(0,113,197,0.25);
+            background: var(--intel-blue);
             color: white;
+            border-color: var(--intel-blue);
         }
 
         .reset-btn {
@@ -629,13 +730,25 @@
         /* ─── Footer ─────────────────────────────── */
         .footer-info {
             text-align: center;
-            padding: 8px;
-            font-size: 11px;
+            padding: 14px 16px;
+            font-size: 12px;
             color: var(--text-dim);
             border-top: 1px solid var(--border);
             background: var(--card);
+            line-height: 1.7;
         }
-        .footer-info a { color: var(--accent); text-decoration: none; }
+        .footer-info a { color: var(--accent); text-decoration: none; transition: color 0.2s; }
+        .footer-info a:hover { text-decoration: underline; }
+        .footer-info .footer-divider { margin: 0 8px; opacity: 0.5; }
+        .footer-info .footer-author {
+            color: var(--text);
+            font-weight: 600;
+        }
+        .footer-info .footer-meta {
+            margin-top: 4px;
+            font-size: 11px;
+            opacity: 0.85;
+        }
 
         /* ─── Scrollbar ──────────────────────────── */
         ::-webkit-scrollbar { width: 8px; }
@@ -659,17 +772,41 @@
             <h1>⚡ <span>SSMD</span> Agent</h1>
             <div class="header-badge" id="versionBadge">Loading...</div>
         </div>
-        <div class="header-nav">
-            <button class="active" onclick="switchTab('dashboard')">📊 Dashboard</button>
-            <button onclick="switchTab('chat')">💬 AI 助手</button>
-            <button onclick="switchTab('versions')">📦 版本歷史</button>
-            <button onclick="switchTab('reference')">📖 指令參考</button>
+        <div class="header-right">
+            <div class="header-nav">
+                <button class="active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+                <button onclick="switchTab('chat')">💬 AI 助手</button>
+                <button onclick="switchTab('versions')">📦 版本歷史</button>
+                <button onclick="switchTab('reference')">📖 指令參考</button>
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()" title="切換主題 (淺色/深色)" aria-label="Toggle theme">
+                <span class="icon icon-sun">☀️</span>
+                <span class="icon icon-moon">🌙</span>
+            </button>
         </div>
     </div>
 
     <div class="main-container">
         <!-- ═══════ Dashboard ═══════ -->
         <div class="dashboard-panel active" id="dashboardPanel">
+            <!-- Download Links -->
+            <div style="display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap;">
+                <a href="https://www.intel.com/content/www/us/en/secure/design/confidential/software-kits/kit-details.html?kitId=826017"
+                   target="_blank" rel="noopener noreferrer"
+                   style="display:inline-flex; align-items:center; gap:8px; padding:10px 20px; background:linear-gradient(135deg,#0071c5,#00285a); color:#fff; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600; transition:transform .2s,box-shadow .2s; box-shadow:0 2px 8px rgba(0,113,197,0.3);"
+                   onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(0,113,197,0.5)'"
+                   onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(0,113,197,0.3)'">
+                    ⬇️ Intel® SSMD - Windows Download
+                </a>
+                <a href="https://www.intel.com/content/www/us/en/secure/design/confidential/software-kits/kit-details.html?kitId=818881"
+                   target="_blank" rel="noopener noreferrer"
+                   style="display:inline-flex; align-items:center; gap:8px; padding:10px 20px; background:linear-gradient(135deg,#0071c5,#00285a); color:#fff; border-radius:8px; text-decoration:none; font-size:14px; font-weight:600; transition:transform .2s,box-shadow .2s; box-shadow:0 2px 8px rgba(0,113,197,0.3);"
+                   onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(0,113,197,0.5)'"
+                   onmouseout="this.style.transform='';this.style.boxShadow='0 2px 8px rgba(0,113,197,0.3)'">
+                    🐧 Intel® SSMD - Linux Download
+                </a>
+            </div>
+
             <div class="section-title">📊 版本總覽</div>
             <div class="dash-grid" id="overviewGrid"></div>
 
@@ -763,7 +900,18 @@
 
     <!-- Footer -->
     <div class="footer-info">
-        SSMD Web Agent — Created by <strong>Dong-han Wu</strong> · Powered by Intel SSMD Framework · Version data auto-scanned from local packages
+        <div>
+            👨‍💻 Created &amp; Maintained by <span class="footer-author">Dong-han Wu</span>
+            <span class="footer-divider">·</span>
+            <a href="https://github.com/dong-hanwu/ssmd_agent" target="_blank" rel="noopener noreferrer">🔗 GitHub Repository</a>
+            <span class="footer-divider">·</span>
+            <a href="mailto:dong-han.wu@intel.com">📧 Contact</a>
+        </div>
+        <div class="footer-meta">
+            ⚡ SSMD Web Agent · Powered by Intel® System Stress &amp; Memory Diagnostics Framework
+            <span class="footer-divider">·</span>
+            © 2026 Dong-han Wu · All Rights Reserved
+        </div>
     </div>
 
     <script>
@@ -807,6 +955,14 @@
     function escapeHtml(text) {
         const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
         return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // ─── Theme Toggle ───────────────────────────
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('ssmd-theme', next);
     }
 
     // ─── Tab switching ──────────────────────────
