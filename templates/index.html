@@ -356,6 +356,35 @@
             overflow-x: auto;
             font-size: 13px;
             position: relative;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .msg-content pre:hover {
+            border-color: var(--intel-blue);
+            box-shadow: 0 0 0 3px rgba(0,113,197,0.12);
+        }
+        .msg-content pre::before {
+            content: '📋 點擊複製';
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 11px;
+            color: var(--text-dim);
+            background: var(--card);
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+        .msg-content pre:hover::before { opacity: 1; }
+        .msg-content pre.copied::before {
+            content: '✅ 已複製';
+            color: var(--success);
+            border-color: var(--success);
+            opacity: 1;
         }
         .msg-content code {
             font-family: 'Cascadia Code', 'Fira Code', monospace;
@@ -511,22 +540,48 @@
         .cmd-card .cmd-code {
             background: var(--code-bg);
             padding: 10px 14px;
+            padding-right: 110px;
             border-radius: 6px;
             font-family: 'Cascadia Code', 'Fira Code', monospace;
             font-size: 13px;
             color: var(--accent);
             cursor: pointer;
             position: relative;
+            border: 1px solid transparent;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            word-break: break-all;
         }
-        .cmd-card .cmd-code:hover::after {
-            content: '📋 Click to copy';
+        .cmd-card .cmd-code:hover {
+            border-color: var(--intel-blue);
+            box-shadow: 0 0 0 3px rgba(0,113,197,0.12);
+        }
+        .cmd-card .cmd-code::after {
+            content: '📋 點擊複製';
             position: absolute;
-            right: 10px;
+            right: 8px;
             top: 50%;
             transform: translateY(-50%);
             font-size: 11px;
             color: var(--text-dim);
             font-family: 'Segoe UI', sans-serif;
+            background: var(--card);
+            padding: 3px 9px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+        .cmd-card .cmd-code:hover::after {
+            color: var(--intel-blue);
+            border-color: var(--intel-blue);
+        }
+        .cmd-card .cmd-code.copied {
+            border-color: var(--success);
+            box-shadow: 0 0 0 3px rgba(0,210,106,0.15);
+        }
+        .cmd-card .cmd-code.copied::after {
+            content: '✅ 已複製';
+            color: var(--success);
+            border-color: var(--success);
         }
         .cmd-card .cmd-note {
             font-size: 12px;
@@ -727,6 +782,61 @@
             border: 1px solid rgba(147,51,234,0.3);
         }
 
+        /* ─── Toast Notification ─────────────────── */
+        .toast-container {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--card);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--success);
+            padding: 12px 18px;
+            border-radius: 10px;
+            box-shadow: var(--shadow-md);
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 260px;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .toast.toast-out { animation: toastSlideOut 0.3s forwards ease-in; }
+        .toast .toast-icon { font-size: 20px; flex-shrink: 0; }
+        .toast .toast-body { flex: 1; line-height: 1.4; }
+        .toast .toast-title { font-weight: 700; margin-bottom: 2px; }
+        .toast .toast-sub {
+            font-size: 12px;
+            color: var(--text-dim);
+            font-family: 'Cascadia Code', 'Fira Code', monospace;
+            word-break: break-all;
+            max-height: 2.8em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .toast.toast-error { border-left-color: var(--danger); }
+        @keyframes toastSlideIn {
+            from { transform: translateX(120%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes toastSlideOut {
+            to { transform: translateX(120%); opacity: 0; }
+        }
+
         /* ─── Footer ─────────────────────────────── */
         .footer-info {
             text-align: center;
@@ -913,6 +1023,9 @@
             © 2026 Dong-han Wu · All Rights Reserved
         </div>
     </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
     <script>
     // ─── Markdown-like rendering ────────────────
@@ -1255,12 +1368,80 @@
         });
     }
 
-    function copyCmd(el) {
-        navigator.clipboard.writeText(el.textContent.trim());
-        const original = el.style.borderColor;
-        el.style.borderColor = 'var(--success)';
-        setTimeout(() => el.style.borderColor = original, 1000);
+    // ─── Toast Notification ─────────────────────
+    function showToast(title, subtitle, type = 'success') {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = 'toast' + (type === 'error' ? ' toast-error' : '');
+        const icon = type === 'error' ? '⚠️' : '✅';
+        toast.innerHTML = `
+            <div class="toast-icon">${icon}</div>
+            <div class="toast-body">
+                <div class="toast-title">${escapeHtml(title)}</div>
+                ${subtitle ? `<div class="toast-sub">${escapeHtml(subtitle)}</div>` : ''}
+            </div>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('toast-out');
+            toast.addEventListener('animationend', () => toast.remove(), { once: true });
+        }, 2200);
     }
+
+    // ─── Copy to clipboard with toast feedback ──
+    async function copyToClipboard(text) {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                // Fallback for non-secure contexts (http://)
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            return true;
+        } catch (e) {
+            console.error('Copy failed:', e);
+            return false;
+        }
+    }
+
+    async function copyCmd(el) {
+        const text = el.textContent.trim();
+        const ok = await copyToClipboard(text);
+        if (ok) {
+            el.classList.add('copied');
+            setTimeout(() => el.classList.remove('copied'), 1500);
+            showToast('已成功複製指令到剪貼簿', text, 'success');
+        } else {
+            showToast('複製失敗', '請手動選取文字複製', 'error');
+        }
+    }
+
+    // Copy handler for chat message <pre><code> blocks
+    async function copyCodeBlock(preEl) {
+        const text = preEl.innerText.trim();
+        const ok = await copyToClipboard(text);
+        if (ok) {
+            preEl.classList.add('copied');
+            setTimeout(() => preEl.classList.remove('copied'), 1500);
+            showToast('已成功複製程式碼', text, 'success');
+        } else {
+            showToast('複製失敗', '請手動選取文字複製', 'error');
+        }
+    }
+
+    // Delegate clicks on dynamically-rendered code blocks inside chat
+    document.addEventListener('click', (e) => {
+        const pre = e.target.closest('.msg-content pre');
+        if (pre) copyCodeBlock(pre);
+    });
 
     // ─── Version History ────────────────────────
     let versionsData = null;
